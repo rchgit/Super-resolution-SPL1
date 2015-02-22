@@ -1,0 +1,230 @@
+
+<!DOCTYPE html
+  PUBLIC "-//W3C//DTD HTML 4.01 Transitional//EN">
+<html><head>
+      <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+   <!--
+This HTML was auto-generated from MATLAB code.
+To make changes, update the MATLAB code and republish this document.
+      --><title>learnSphericalClusters</title><meta name="generator" content="MATLAB 8.3"><link rel="schema.DC" href="http://purl.org/dc/elements/1.1/"><meta name="DC.date" content="2015-01-29"><meta name="DC.source" content="learnSphericalClusters.m"><style type="text/css">
+html,body,div,span,applet,object,iframe,h1,h2,h3,h4,h5,h6,p,blockquote,pre,a,abbr,acronym,address,big,cite,code,del,dfn,em,font,img,ins,kbd,q,s,samp,small,strike,strong,sub,sup,tt,var,b,u,i,center,dl,dt,dd,ol,ul,li,fieldset,form,label,legend,table,caption,tbody,tfoot,thead,tr,th,td{margin:0;padding:0;border:0;outline:0;font-size:100%;vertical-align:baseline;background:transparent}body{line-height:1}ol,ul{list-style:none}blockquote,q{quotes:none}blockquote:before,blockquote:after,q:before,q:after{content:'';content:none}:focus{outine:0}ins{text-decoration:none}del{text-decoration:line-through}table{border-collapse:collapse;border-spacing:0}
+
+html { min-height:100%; margin-bottom:1px; }
+html body { height:100%; margin:0px; font-family:Arial, Helvetica, sans-serif; font-size:10px; color:#000; line-height:140%; background:#fff none; overflow-y:scroll; }
+html body td { vertical-align:top; text-align:left; }
+
+h1 { padding:0px; margin:0px 0px 25px; font-family:Arial, Helvetica, sans-serif; font-size:1.5em; color:#d55000; line-height:100%; font-weight:normal; }
+h2 { padding:0px; margin:0px 0px 8px; font-family:Arial, Helvetica, sans-serif; font-size:1.2em; color:#000; font-weight:bold; line-height:140%; border-bottom:1px solid #d6d4d4; display:block; }
+h3 { padding:0px; margin:0px 0px 5px; font-family:Arial, Helvetica, sans-serif; font-size:1.1em; color:#000; font-weight:bold; line-height:140%; }
+
+a { color:#005fce; text-decoration:none; }
+a:hover { color:#005fce; text-decoration:underline; }
+a:visited { color:#004aa0; text-decoration:none; }
+
+p { padding:0px; margin:0px 0px 20px; }
+img { padding:0px; margin:0px 0px 20px; border:none; }
+p img, pre img, tt img, li img, h1 img, h2 img { margin-bottom:0px; } 
+
+ul { padding:0px; margin:0px 0px 20px 23px; list-style:square; }
+ul li { padding:0px; margin:0px 0px 7px 0px; }
+ul li ul { padding:5px 0px 0px; margin:0px 0px 7px 23px; }
+ul li ol li { list-style:decimal; }
+ol { padding:0px; margin:0px 0px 20px 0px; list-style:decimal; }
+ol li { padding:0px; margin:0px 0px 7px 23px; list-style-type:decimal; }
+ol li ol { padding:5px 0px 0px; margin:0px 0px 7px 0px; }
+ol li ol li { list-style-type:lower-alpha; }
+ol li ul { padding-top:7px; }
+ol li ul li { list-style:square; }
+
+.content { font-size:1.2em; line-height:140%; padding: 20px; }
+
+pre, code { font-size:12px; }
+tt { font-size: 1.2em; }
+pre { margin:0px 0px 20px; }
+pre.codeinput { padding:10px; border:1px solid #d3d3d3; background:#f7f7f7; }
+pre.codeoutput { padding:10px 11px; margin:0px 0px 20px; color:#4c4c4c; }
+pre.error { color:red; }
+
+@media print { pre.codeinput, pre.codeoutput { word-wrap:break-word; width:100%; } }
+
+span.keyword { color:#0000FF }
+span.comment { color:#228B22 }
+span.string { color:#A020F0 }
+span.untermstring { color:#B20000 }
+span.syscmd { color:#B28C00 }
+
+.footer { width:auto; padding:10px 0px; margin:25px 0px 0px; border-top:1px dotted #878787; font-size:0.8em; line-height:140%; font-style:italic; color:#878787; text-align:left; float:none; }
+.footer p { margin:0px; }
+.footer a { color:#878787; }
+.footer a:hover { color:#878787; text-decoration:underline; }
+.footer a:visited { color:#878787; }
+
+table th { padding:7px 5px; text-align:left; vertical-align:middle; border: 1px solid #d6d4d4; font-weight:bold; }
+table td { padding:7px 5px; text-align:left; vertical-align:top; border:1px solid #d6d4d4; }
+
+
+
+
+
+  </style></head><body><div class="content"><pre class="codeinput"><span class="keyword">function</span> [V,A,B,n] = learnSphericalClusters(X,V,A,B,n)
+<span class="comment">% V = cluster centers = dictionary atoms</span>
+<span class="comment">% A &amp; B = least-squares statistics</span>
+<span class="comment">% n = training count</span>
+
+<span class="comment">% Define the mini-batch size</span>
+batchSize = 100;
+learnRate = 1000;
+
+<span class="comment">% Ensure that the signals are zero-mean</span>
+X = X - repmat(mean(X),size(X,1),1);
+
+<span class="comment">% Remove columns with negligible norms and normalize the remaining signals</span>
+X = X(:,sqrt(sum(X .^ 2)) &gt;= 0.1);
+X = X ./ repmat(sqrt(sum(X .^ 2)),size(X,1),1);
+
+<span class="comment">% Extract the signal information</span>
+numCols = size(X,2);
+dictSize = size(X,1);
+
+<span class="comment">% Check if the input statistics have been provided</span>
+<span class="keyword">if</span> length(V(:)) == 1
+    <span class="comment">% The value stored in D is actually the number of atoms</span>
+    numAtoms = V;
+
+    <span class="comment">% Create blank statistics</span>
+    A = zeros(numAtoms,numAtoms);
+    B = zeros(dictSize,numAtoms);
+    n = 1;
+
+    <span class="comment">% Initialize a random dictionary</span>
+    V = randn(dictSize,numAtoms);
+    V = V ./ repmat(sqrt(sum(V .^ 2)),dictSize,1);
+<span class="keyword">else</span>
+    <span class="comment">% Check if the dictionary size is consistent with the data</span>
+    assert(size(V,1) == dictSize,<span class="string">'The dictionary and data have different sizes'</span>);
+
+    <span class="comment">% Determine the number of atoms present in the dictionary</span>
+    numAtoms = size(V,2);
+
+    <span class="comment">% Verify the sizes of the statistics</span>
+    <span class="comment">% assert(size(A,1) == numAtoms &amp;&amp; size(A,2) == numAtoms,'The statistics matrix A has an invalid size');</span>
+    assert(size(A,1) == dictSize &amp;&amp; size(A,2) == numAtoms,<span class="string">'The statistics matrix A has an invalid size'</span>);
+    assert(size(B,1) == dictSize &amp;&amp; size(B,2) == numAtoms,<span class="string">'The statistics matrix B has an invalid size'</span>);
+    assert(n &gt; 0,<span class="string">'The training count is invalid'</span>);
+<span class="keyword">end</span>
+
+<span class="keyword">for</span> i = 1:batchSize:numCols-batchSize+1
+    <span class="comment">% Copy the batch to a local variable</span>
+    Xbatch = X(:,i:i+batchSize-1);
+
+    <span class="comment">% Find the closest cluster</span>
+    alpha = V' * Xbatch;
+    alpha(alpha &lt; repmat(max(alpha),numAtoms,1)) = 0;
+
+    <span class="comment">% Calculate the learning factor</span>
+    beta = (1 - 1 / n) ^ learnRate;
+
+    <span class="comment">% Update the statistics</span>
+    A = beta * A + alpha * alpha' / batchSize;
+    B = beta * B + Xbatch * alpha' / batchSize;
+
+    <span class="comment">% Update the dictionary</span>
+    <span class="keyword">for</span> j = 1:numAtoms
+        <span class="keyword">if</span> A(j,j) &gt;= 1e-6
+            u = (B(:,j) - V * A(:,j)) / A(j,j) + V(:,j);
+            V(:,j) = u / norm(u);
+        <span class="keyword">end</span>
+    <span class="keyword">end</span>
+
+    <span class="comment">% Replace unused atoms with random atoms</span>
+    j = diag(A) &lt; 1e-6;
+    V(:,j) = randn(dictSize,nnz(j));
+    V(:,j) = V(:,j) ./ repmat(sqrt(sum(V(:,j) .^ 2)),dictSize,1);
+
+    <span class="comment">% Update the training count</span>
+    n = n + batchSize;
+<span class="keyword">end</span>
+</pre><pre class="codeoutput error">Error using learnSphericalClusters (line 11)
+Not enough input arguments.</pre><p class="footer"><br><a href="http://www.mathworks.com/products/matlab/">Published with MATLAB&reg; R2014a</a><br></p></div><!--
+##### SOURCE BEGIN #####
+function [V,A,B,n] = learnSphericalClusters(X,V,A,B,n)
+% V = cluster centers = dictionary atoms
+% A & B = least-squares statistics
+% n = training count
+
+% Define the mini-batch size
+batchSize = 100;
+learnRate = 1000;
+
+% Ensure that the signals are zero-mean
+X = X - repmat(mean(X),size(X,1),1);
+
+% Remove columns with negligible norms and normalize the remaining signals
+X = X(:,sqrt(sum(X .^ 2)) >= 0.1);
+X = X ./ repmat(sqrt(sum(X .^ 2)),size(X,1),1);
+
+% Extract the signal information
+numCols = size(X,2);
+dictSize = size(X,1);
+
+% Check if the input statistics have been provided
+if length(V(:)) == 1
+    % The value stored in D is actually the number of atoms
+    numAtoms = V;
+    
+    % Create blank statistics
+    A = zeros(numAtoms,numAtoms);
+    B = zeros(dictSize,numAtoms);
+    n = 1;
+    
+    % Initialize a random dictionary
+    V = randn(dictSize,numAtoms);
+    V = V ./ repmat(sqrt(sum(V .^ 2)),dictSize,1);
+else
+    % Check if the dictionary size is consistent with the data
+    assert(size(V,1) == dictSize,'The dictionary and data have different sizes');
+    
+    % Determine the number of atoms present in the dictionary
+    numAtoms = size(V,2);
+    
+    % Verify the sizes of the statistics
+    % assert(size(A,1) == numAtoms && size(A,2) == numAtoms,'The statistics matrix A has an invalid size');
+    assert(size(A,1) == dictSize && size(A,2) == numAtoms,'The statistics matrix A has an invalid size');
+    assert(size(B,1) == dictSize && size(B,2) == numAtoms,'The statistics matrix B has an invalid size');
+    assert(n > 0,'The training count is invalid');
+end
+
+for i = 1:batchSize:numCols-batchSize+1
+    % Copy the batch to a local variable
+    Xbatch = X(:,i:i+batchSize-1); 
+
+    % Find the closest cluster
+    alpha = V' * Xbatch;
+    alpha(alpha < repmat(max(alpha),numAtoms,1)) = 0;
+    
+    % Calculate the learning factor
+    beta = (1 - 1 / n) ^ learnRate;
+
+    % Update the statistics
+    A = beta * A + alpha * alpha' / batchSize;
+    B = beta * B + Xbatch * alpha' / batchSize;
+
+    % Update the dictionary
+    for j = 1:numAtoms
+        if A(j,j) >= 1e-6
+            u = (B(:,j) - V * A(:,j)) / A(j,j) + V(:,j);
+            V(:,j) = u / norm(u);
+        end
+    end
+
+    % Replace unused atoms with random atoms
+    j = diag(A) < 1e-6;
+    V(:,j) = randn(dictSize,nnz(j));
+    V(:,j) = V(:,j) ./ repmat(sqrt(sum(V(:,j) .^ 2)),dictSize,1);
+
+    % Update the training count
+    n = n + batchSize;
+end
+
+##### SOURCE END #####
+--></body></html>
