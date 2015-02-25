@@ -1,5 +1,5 @@
 function [hHighRes] = trainLSFilter(numIter,wsize,filename)
-files = [dir('*.png'); dir('*.bmp'); dir('*.jpg')];
+%% Simulation settings
 % Define the Gaussian size
 gsize = 11;
 
@@ -21,6 +21,54 @@ BV2 = zeros(1,wsize*wsize);
 BV3 = zeros(1,wsize*wsize);
 BV4 = zeros(1,wsize*wsize);
 
+%% Image data initialization
+% Get all image files in the current folder
+files = [dir('*.png'); dir('*.bmp'); dir('*.jpg')];
+X = cell(size(files,1),1);
+Y = cell(size(files,1),1);
+i = 0;
+for file = files'
+    i = i + 1;
+    % Inform user of the progress
+    fprintf('\tLoading image %d of %d: \t%s\t\t',i,size(files,1),file.name);
+    
+
+    % Load image to memory
+    % If image is grayscale
+%     [X,map] = imread(file.name);
+%     X = double(X)/255;
+%     if size(map,2) == 3
+%         X = rgb2gray(X);
+%     end
+    X{i} = rgb2gray(double(imread(file.name)) / 255);
+    % If the image has odd dimensions, crop pixels from the last row and/or
+    % column
+    if size(size(X{i}),2) == 2 % .bmp files
+        if mod(size(X{i},1),2) ~= 0
+%             X{i} = [X{i}; X{i}(end,:)];
+            X{i} = X{i}(2:end-2,:);
+        end
+
+        if mod(size(X{i},2),2) ~= 0
+%            X{i} = [X{i} X{i}(:,end)];
+            X{i} = X{i}(:,2:end-2);
+        end
+    elseif size(size(X{i}),2) == 3 % .png or .jpg files
+        if mod(size(X{i},1),2) ~= 0
+%             X{i} = [X{i}; X{i}(end,:,:)];
+            X{i} = X{i}(2:end-2,:,:);
+        end
+
+        if mod(size(X{i},2),2) ~= 0
+%            X{i} = [X{i} X{i}(:,end,:)];
+            X{i} = X{i}(:,2:end-2,:);
+        end
+    end
+    fprintf('Size: %dx%d\n',size(X{i},1),size(X{i},2));
+    % Create a downsampled and approximate version of the image
+    Y{i} = imresize(imresize(X{i},0.5,'bicubic'),2,'lanczos3');
+end
+
 %% Initial pass
 
 % Define the initial filter set
@@ -40,33 +88,22 @@ hHighRes.H3 = hHighRes.H3 / sum(abs(hHighRes.H3(:)));
 hHighRes.H4 = hHighRes.H4 / sum(abs(hHighRes.H4(:)));
 
 % Process each of the images
-
 fprintf('Performing the initial pass...\n');
-i = 0;
-for file = files'
-    i = i + 1;
+
+for i=1:size(files,1)
+   
     % Inform user of the progress
-    fprintf('  Processing image %d\n',i);
-
-    % Load image to memory
-%     [X,map] = imread(file.name);
-%     X = double(X)/255;
-%     if size(map,2) == 3
-%         X = rgb2gray(X);
-%     end
-    X = rgb2gray(double(imread(file.name)) / 255);
-    % Create a downsampled and approximate version of the image
-    Y = imresize(imresize(X,0.5,'bicubic'),2,'lanczos3');
-
+    fprintf('\tProcessing image %d of %d\n',i,size(files,1));
+    
     % Obtain features from the high-resolution image
-    FL = imfilter(X,hHighRes.L,'same','symmetric');
-    FH1 = imfilter(X,hHighRes.H1,'same','symmetric');
-    FH2 = imfilter(X,hHighRes.H2,'same','symmetric');
-    FH3 = imfilter(X,hHighRes.H3,'same','symmetric');
-    FH4 = imfilter(X,hHighRes.H4,'same','symmetric');
+    FL = imfilter(X{i},hHighRes.L,'same','symmetric');
+    FH1 = imfilter(X{i},hHighRes.H1,'same','symmetric');
+    FH2 = imfilter(X{i},hHighRes.H2,'same','symmetric');
+    FH3 = imfilter(X{i},hHighRes.H3,'same','symmetric');
+    FH4 = imfilter(X{i},hHighRes.H4,'same','symmetric');
     
     % Calculate the gradient of the approximate image
-    [GX,GY] = imgradientxy(Y);
+    [GX,GY] = imgradientxy(Y{i});
     GX = GX(17:end-16,17:end-16) .^ 2;
     GY = GY(17:end-16,17:end-16) .^ 2;
     GX = imfilter(GX,ones(5),'same','symmetric');
@@ -79,8 +116,8 @@ for file = files'
     FH2 = FH2(17:end-16,17:end-16);
     FH3 = FH3(17:end-16,17:end-16);
     FH4 = FH4(17:end-16,17:end-16);
-    G = Y(17-gpad:end-16+gpad,17-gpad:end-16+gpad);
-    Y = Y(17-wpad:end-16+wpad,17-wpad:end-16+wpad);
+    G = Y{i}(17-gpad:end-16+gpad,17-gpad:end-16+gpad);
+    Y_tmp = Y{i}(17-wpad:end-16+wpad,17-wpad:end-16+wpad);
     
     % Convert the images and their features into column form
     FL = reshape(FL,1,[]);
@@ -90,24 +127,24 @@ for file = files'
     FH4 = reshape(FH4,1,[]);
     dirVar = reshape(dirVar,1,[]);
     G = im2col(G,[gsize gsize],'sliding');
-    Y = im2col(Y,[wsize wsize],'sliding');
+    Y_tmp = im2col(Y_tmp,[wsize wsize],'sliding');
     
     % Collect statistics
     A = A + G * G';
     B = B + FL * G';
     
-    AH = AH + Y(:,dirVar) * Y(:,dirVar)';
-    AV = AV + Y(:,~dirVar) * Y(:,~dirVar)';
+    AH = AH + Y_tmp(:,dirVar) * Y_tmp(:,dirVar)';
+    AV = AV + Y_tmp(:,~dirVar) * Y_tmp(:,~dirVar)';
 
-    BH1 = BH1 + FH1(:,dirVar) * Y(:,dirVar)';
-    BH2 = BH2 + FH2(:,dirVar) * Y(:,dirVar)';
-    BH3 = BH3 + FH3(:,dirVar) * Y(:,dirVar)';
-    BH4 = BH4 + FH4(:,dirVar) * Y(:,dirVar)';
+    BH1 = BH1 + FH1(:,dirVar) * Y_tmp(:,dirVar)';
+    BH2 = BH2 + FH2(:,dirVar) * Y_tmp(:,dirVar)';
+    BH3 = BH3 + FH3(:,dirVar) * Y_tmp(:,dirVar)';
+    BH4 = BH4 + FH4(:,dirVar) * Y_tmp(:,dirVar)';
     
-    BV1 = BV1 + FH1(:,~dirVar) * Y(:,~dirVar)';
-    BV2 = BV2 + FH2(:,~dirVar) * Y(:,~dirVar)';
-    BV3 = BV3 + FH3(:,~dirVar) * Y(:,~dirVar)';
-    BV4 = BV4 + FH4(:,~dirVar) * Y(:,~dirVar)';
+    BV1 = BV1 + FH1(:,~dirVar) * Y_tmp(:,~dirVar)';
+    BV2 = BV2 + FH2(:,~dirVar) * Y_tmp(:,~dirVar)';
+    BV3 = BV3 + FH3(:,~dirVar) * Y_tmp(:,~dirVar)';
+    BV4 = BV4 + FH4(:,~dirVar) * Y_tmp(:,~dirVar)';
 end
 
 % Extract the filter coefficients
@@ -141,31 +178,24 @@ for n = 1:numIter
 
     % Update the high-resolution filters
     fprintf('Updating high-resolution filters %d of %d\n',n,numIter);
-    i = 0;
-    for file = files'
-        i = i + 1;
+    
+    for i = 1:size(files,1)
         % Inform user of the progress
-        fprintf('  Processing image %d\n',i);
-
-        % Load image to memory
-        X = rgb2gray(double(imread(file.name)) / 255);
-
-        % Create a downsampled and approximate version of the image
-        Y = imresize(imresize(X,0.5,'bicubic'),2,'lanczos3');
+        fprintf('\tProcessing image %d of %d\n',i,size(files,1));
 
         % Obtain features from the high-resolution image
-        FL = imfilter(Y,hLowRes.L,'same','symmetric');
-        FH1 = imfilter(Y,hLowRes.H1,'same','symmetric');
-        FH2 = imfilter(Y,hLowRes.H2,'same','symmetric');
-        FH3 = imfilter(Y,hLowRes.H3,'same','symmetric');
-        FH4 = imfilter(Y,hLowRes.H4,'same','symmetric');
-        FV1 = imfilter(Y,hLowRes.V1,'same','symmetric');
-        FV2 = imfilter(Y,hLowRes.V2,'same','symmetric');
-        FV3 = imfilter(Y,hLowRes.V3,'same','symmetric');
-        FV4 = imfilter(Y,hLowRes.V4,'same','symmetric');
+        FL = imfilter(Y{i},hLowRes.L,'same','symmetric');
+        FH1 = imfilter(Y{i},hLowRes.H1,'same','symmetric');
+        FH2 = imfilter(Y{i},hLowRes.H2,'same','symmetric');
+        FH3 = imfilter(Y{i},hLowRes.H3,'same','symmetric');
+        FH4 = imfilter(Y{i},hLowRes.H4,'same','symmetric');
+        FV1 = imfilter(Y{i},hLowRes.V1,'same','symmetric');
+        FV2 = imfilter(Y{i},hLowRes.V2,'same','symmetric');
+        FV3 = imfilter(Y{i},hLowRes.V3,'same','symmetric');
+        FV4 = imfilter(Y{i},hLowRes.V4,'same','symmetric');
 
         % Calculate the gradient of the approximate image
-        [GX,GY] = imgradientxy(Y);
+        [GX,GY] = imgradientxy(Y{i});
         GX = GX(17:end-16,17:end-16) .^ 2;
         GY = GY(17:end-16,17:end-16) .^ 2;
         GX = imfilter(GX,ones(5),'same','symmetric');
@@ -182,8 +212,8 @@ for n = 1:numIter
         FV2 = FV2(17:end-16,17:end-16);
         FV3 = FV3(17:end-16,17:end-16);
         FV4 = FV4(17:end-16,17:end-16);
-        G = X(17-gpad:end-16+gpad,17-gpad:end-16+gpad);
-        X = X(17-wpad:end-16+wpad,17-wpad:end-16+wpad);
+        G = X{i}(17-gpad:end-16+gpad,17-gpad:end-16+gpad);
+        X_tmp = X{i}(17-wpad:end-16+wpad,17-wpad:end-16+wpad);
 
         % Convert the images and their features into column form
         FL = reshape(FL,1,[]);
@@ -197,24 +227,24 @@ for n = 1:numIter
         FV4 = reshape(FV4,1,[]);
         dirVar = reshape(dirVar,1,[]);
         G = im2col(G,[gsize gsize],'sliding');
-        X = im2col(X,[wsize wsize],'sliding');
+        X_tmp = im2col(X_tmp,[wsize wsize],'sliding');
 
         % Collect statistics
         A = A + G * G';
         B = B + FL * G';
 
-        AH = AH + X(:,dirVar) * X(:,dirVar)';
-        AV = AV + X(:,~dirVar) * X(:,~dirVar)';
+        AH = AH + X_tmp(:,dirVar) * X_tmp(:,dirVar)';
+        AV = AV + X_tmp(:,~dirVar) * X_tmp(:,~dirVar)';
 
-        BH1 = BH1 + FH1(:,dirVar) * X(:,dirVar)';
-        BH2 = BH2 + FH2(:,dirVar) * X(:,dirVar)';
-        BH3 = BH3 + FH3(:,dirVar) * X(:,dirVar)';
-        BH4 = BH4 + FH4(:,dirVar) * X(:,dirVar)';
+        BH1 = BH1 + FH1(:,dirVar) * X_tmp(:,dirVar)';
+        BH2 = BH2 + FH2(:,dirVar) * X_tmp(:,dirVar)';
+        BH3 = BH3 + FH3(:,dirVar) * X_tmp(:,dirVar)';
+        BH4 = BH4 + FH4(:,dirVar) * X_tmp(:,dirVar)';
 
-        BV1 = BV1 + FV1(:,~dirVar) * X(:,~dirVar)';
-        BV2 = BV2 + FV2(:,~dirVar) * X(:,~dirVar)';
-        BV3 = BV3 + FV3(:,~dirVar) * X(:,~dirVar)';
-        BV4 = BV4 + FV4(:,~dirVar) * X(:,~dirVar)';
+        BV1 = BV1 + FV1(:,~dirVar) * X_tmp(:,~dirVar)';
+        BV2 = BV2 + FV2(:,~dirVar) * X_tmp(:,~dirVar)';
+        BV3 = BV3 + FV3(:,~dirVar) * X_tmp(:,~dirVar)';
+        BV4 = BV4 + FV4(:,~dirVar) * X_tmp(:,~dirVar)';
     end
     
     % Extract the filter coefficients
@@ -256,31 +286,23 @@ for n = 1:numIter
     % Update the low-resolution filters
     fprintf('Updating low-resolution filters %d of %d\n',n,numIter);
     
- 
-    i = 0;
-    for file = files'
-        i = i + 1;
+    for i = 1:size(files,1)
         % Inform user of the progress
-        fprintf('  Processing image %d\n',i);
-
-        % Load image to memory
-        X = rgb2gray(double(imread(file.name)) / 255);
-        % Create a downsampled and approximate version of the image
-        Y = imresize(imresize(X,0.5,'bicubic'),2,'lanczos3');
-
+        fprintf('\tProcessing image %d of %d\n',i,size(files,1));
+		
         % Obtain features from the high-resolution image
-        FL = imfilter(X,hHighRes.L,'same','symmetric');
-        FH1 = imfilter(X,hHighRes.H1,'same','symmetric');
-        FH2 = imfilter(X,hHighRes.H2,'same','symmetric');
-        FH3 = imfilter(X,hHighRes.H3,'same','symmetric');
-        FH4 = imfilter(X,hHighRes.H4,'same','symmetric');
-        FV1 = imfilter(X,hHighRes.V1,'same','symmetric');
-        FV2 = imfilter(X,hHighRes.V2,'same','symmetric');
-        FV3 = imfilter(X,hHighRes.V3,'same','symmetric');
-        FV4 = imfilter(X,hHighRes.V4,'same','symmetric');
+        FL = imfilter(X{i},hHighRes.L,'same','symmetric');
+        FH1 = imfilter(X{i},hHighRes.H1,'same','symmetric');
+        FH2 = imfilter(X{i},hHighRes.H2,'same','symmetric');
+        FH3 = imfilter(X{i},hHighRes.H3,'same','symmetric');
+        FH4 = imfilter(X{i},hHighRes.H4,'same','symmetric');
+        FV1 = imfilter(X{i},hHighRes.V1,'same','symmetric');
+        FV2 = imfilter(X{i},hHighRes.V2,'same','symmetric');
+        FV3 = imfilter(X{i},hHighRes.V3,'same','symmetric');
+        FV4 = imfilter(X{i},hHighRes.V4,'same','symmetric');
 
         % Calculate the gradient of the approximate image
-        [GX,GY] = imgradientxy(Y);
+        [GX,GY] = imgradientxy(Y{i});
         GX = GX(17:end-16,17:end-16) .^ 2;
         GY = GY(17:end-16,17:end-16) .^ 2;
         GX = imfilter(GX,ones(5),'same','symmetric');
@@ -297,8 +319,8 @@ for n = 1:numIter
         FV2 = FV2(17:end-16,17:end-16);
         FV3 = FV3(17:end-16,17:end-16);
         FV4 = FV4(17:end-16,17:end-16);
-        G = Y(17-gpad:end-16+gpad,17-gpad:end-16+gpad);
-        Y = Y(17-wpad:end-16+wpad,17-wpad:end-16+wpad);
+        G = Y{i}(17-gpad:end-16+gpad,17-gpad:end-16+gpad);
+        Y_tmp = Y{i}(17-wpad:end-16+wpad,17-wpad:end-16+wpad);
 
         % Convert the images and their features into column form
         FL = reshape(FL,1,[]);
@@ -312,24 +334,24 @@ for n = 1:numIter
         FV4 = reshape(FV4,1,[]);
         dirVar = reshape(dirVar,1,[]);
         G = im2col(G,[gsize gsize],'sliding');
-        Y = im2col(Y,[wsize wsize],'sliding');
+        Y_tmp = im2col(Y_tmp,[wsize wsize],'sliding');
 
         % Collect statistics
         A = A + G * G';
         B = B + FL * G';
 
-        AH = AH + Y(:,dirVar) * Y(:,dirVar)';
-        AV = AV + Y(:,~dirVar) * Y(:,~dirVar)';
+        AH = AH + Y_tmp(:,dirVar) * Y_tmp(:,dirVar)';
+        AV = AV + Y_tmp(:,~dirVar) * Y_tmp(:,~dirVar)';
 
-        BH1 = BH1 + FH1(:,dirVar) * Y(:,dirVar)';
-        BH2 = BH2 + FH2(:,dirVar) * Y(:,dirVar)';
-        BH3 = BH3 + FH3(:,dirVar) * Y(:,dirVar)';
-        BH4 = BH4 + FH4(:,dirVar) * Y(:,dirVar)';
+        BH1 = BH1 + FH1(:,dirVar) * Y_tmp(:,dirVar)';
+        BH2 = BH2 + FH2(:,dirVar) * Y_tmp(:,dirVar)';
+        BH3 = BH3 + FH3(:,dirVar) * Y_tmp(:,dirVar)';
+        BH4 = BH4 + FH4(:,dirVar) * Y_tmp(:,dirVar)';
 
-        BV1 = BV1 + FV1(:,~dirVar) * Y(:,~dirVar)';
-        BV2 = BV2 + FV2(:,~dirVar) * Y(:,~dirVar)';
-        BV3 = BV3 + FV3(:,~dirVar) * Y(:,~dirVar)';
-        BV4 = BV4 + FV4(:,~dirVar) * Y(:,~dirVar)';
+        BV1 = BV1 + FV1(:,~dirVar) * Y_tmp(:,~dirVar)';
+        BV2 = BV2 + FV2(:,~dirVar) * Y_tmp(:,~dirVar)';
+        BV3 = BV3 + FV3(:,~dirVar) * Y_tmp(:,~dirVar)';
+        BV4 = BV4 + FV4(:,~dirVar) * Y_tmp(:,~dirVar)';
     end
     
     % Extract the filter coefficients
@@ -346,6 +368,7 @@ end
 
 save(filename);
 
+%% Filter visualization
 close all;
 figure(1);
 subplot(1,2,1); surf(hHighRes.L); view(2);

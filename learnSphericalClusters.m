@@ -39,7 +39,7 @@ else
     numAtoms = size(V,2);
     
     % Verify the sizes of the statistics
-     assert(size(A,1) == numAtoms && size(A,2) == numAtoms,'The statistics matrix A has an invalid size');
+    assert(size(A,1) == numAtoms && size(A,2) == numAtoms,'The statistics matrix A has an invalid size');
     %assert(size(A,1) == dictSize && size(A,2) == numAtoms,'The statistics matrix A has an invalid size');
     assert(size(B,1) == dictSize && size(B,2) == numAtoms,'The statistics matrix B has an invalid size');
     assert(n > 0,'The training count is invalid');
