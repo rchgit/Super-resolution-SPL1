@@ -1,4 +1,4 @@
-function [V,alpha,A,B,n] = learnSphericalClusters(X,V,n,varargin)
+function [V,totalpha,A,B,n] = learnSphericalClusters_concatenatedalpha(X,V,n,varargin)
 % V = (cluster centers = dictionary atoms) OR num of dict atoms
 % A & B = least-squares statistics
 % n = training count
@@ -8,7 +8,7 @@ fprintf('\tLearn spherical clusters\n');
 minargs = 2;
 maxargs = 5;
 narginchk(minargs, maxargs)
-
+totalpha = [];
 % Define the mini-batch size
 batchSize = 1;
 learnRate = 1000;
@@ -92,5 +92,5 @@ for i = 1:batchSize:numCols-batchSize+1
 
     % Update the training count
     n = n + batchSize;
-    
+    totalpha = [totalpha alpha];
 end

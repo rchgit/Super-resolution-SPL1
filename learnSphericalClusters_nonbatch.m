@@ -1,29 +1,22 @@
-function [V,alpha,A,B,n] = learnSphericalClusters(X,V,n,varargin)
+function [V,alpha,A,B,n] = learnSphericalClusters_nonbatch(X,V,n,varargin)
 % V = (cluster centers = dictionary atoms) OR num of dict atoms
 % A & B = least-squares statistics
 % n = training count
-% alpha = sparse coefficients
-% beta = learning factor
-fprintf('\tLearn spherical clusters\n');
+
 minargs = 2;
 maxargs = 5;
 narginchk(minargs, maxargs)
 
 % Define the mini-batch size
-batchSize = 1;
+%batchSize = 100;
 learnRate = 1000;
 
 % Ensure that the signals are zero-mean
-Xmean = repmat(mean(X),size(X,1),1);
-X = X - Xmean;
+X = X - repmat(mean(X),size(X,1),1);
 
-% Zero the columns with negligible norms 
-X(:,sqrt(sum(X .^ 2)) < 0.1) = 0;
+% Remove columns with negligible norms 
 %X = X(:,sqrt(sum(X .^ 2)) >= 0.1);
-
-% EXPERIMENTAL: return signals to nonzero-mean
-%Xfinal = X + Xmean;
-
+X(:,sqrt(sum(X .^ 2)) < 0.1) = 0;
 % Normalize the remaining signals
 X = X ./ repmat(sqrt(sum(X .^ 2)),size(X,1),1);
 
@@ -37,15 +30,13 @@ if length(V(:)) == 1
     numAtoms = V;
     
     % Create blank statistics
-    %A = zeros(numAtoms,numAtoms);
-    %B = zeros(dictSize,numAtoms);
-    A = sparse(numAtoms,numAtoms);
-    B = sparse(dictSize,numAtoms);
+    A = zeros(numAtoms,numAtoms);
+    B = zeros(numCols,numAtoms);
     n = 1;
     
     % Initialize a random dictionary
-    V = randn(dictSize,numAtoms);
-    V = V ./ repmat(sqrt(sum(V .^ 2)),dictSize,1);
+    V = randn(numCols,numAtoms);
+    V = V ./ repmat(sqrt(sum(V .^ 2)),numCols,1);
 else
     % Check if the dictionary size is consistent with the data
     assert(size(V,1) == dictSize,'The dictionary and data have different sizes');
@@ -61,22 +52,21 @@ else
     assert(n > 0,'The training count is invalid');
 end
 
-for i = 1:batchSize:numCols-batchSize+1
-    fprintf('\t\tTraining count: %d of %d\n',n,numCols-batchSize+1);
+%for i = 1:numCols
     % Copy the batch to a local variable
-    Xbatch = X(:,i:i+batchSize-1); 
-    
+    %Xbatch = X(:,i:i+batchSize-1); 
+    % TODO: Abandon the BATCH TREATMENT!
     % Find the closest cluster
-    alpha = V' * Xbatch;
+    alpha = V' * X;
     alpha(alpha < repmat(max(alpha),numAtoms,1)) = 0;
-    alpha = sparse(alpha);
+    
     % Calculate the learning factor
     beta = (1 - 1 / n) ^ learnRate;
 
     % Update the statistics
-    A = beta * A + alpha * alpha' / batchSize;
-    B = beta * B + Xbatch * alpha' / batchSize;
-    
+    A = beta * A + alpha * alpha';
+    B = beta * B + X * alpha';
+
     % Update the dictionary
     for j = 1:numAtoms
         if A(j,j) >= 1e-6
@@ -87,10 +77,10 @@ for i = 1:batchSize:numCols-batchSize+1
 
     % Replace unused atoms with random atoms
     j = diag(A) < 1e-6;
-    V(:,j) = randn(dictSize,nnz(j));
-    V(:,j) = V(:,j) ./ repmat(sqrt(sum(V(:,j) .^ 2)),dictSize,1);
+    V(:,j) = randn(numCols,nnz(j));
+    V(:,j) = V(:,j) ./ repmat(sqrt(sum(V(:,j) .^ 2)),numCols,1);
 
     % Update the training count
     n = n + batchSize;
-    
+%end
 end

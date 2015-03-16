@@ -38,11 +38,12 @@ flag = 1;       % flag = 0 - only GR, ANR, A+, and bicubic methods, the other ge
                 % flag = 1 - all the methods are applied
 
 upscaling = 4; % the magnification factor x2, x3, x4...
-% filter = 'default';
-filter = 'LS'; % the filter 
+filter = 'default';
+% filter = 'LS'; % the filter 
 input_dir = 'Set5'; % Directory with input images from Set5 image dataset
 %input_dir = 'Set14'; % Directory with input images from Set14 image dataset
-
+%train_method = 'ksvd';
+train_method = 'spherical'; % use spherical training method
 pattern = '*.bmp'; % Pattern to process
 
 dict_sizes = [2 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16384 32768 65536];
@@ -65,7 +66,7 @@ end
 
 fprintf('\n\n');
 if strcmp(filter,'LS')
-    load('trainLS_combined_filter.mat','hHighRes'); 
+    load('filter_trainLS_YCbCr.mat','hHighRes'); 
 end
 
 %% MAIN CODE
@@ -87,7 +88,7 @@ d = 10;
     mat_file = ['conf_Zeyde_' num2str(dict_sizes(d)) '_final_x' num2str(upscaling)];    
         
     if exist([mat_file '.mat'],'file')
-        disp(['Load trained dictionary...' mat_file]);
+        disp(['\tLoad trained dictionary...' mat_file]);
         load(mat_file, 'conf');
     else                            
         disp(['Training dictionary of size ' num2str(dict_sizes(d)) ' using Zeyde approach...']);
@@ -98,12 +99,13 @@ d = 10;
         conf.border = [1 1]; % border of the image (to ignore)
 
         % High-pass filters for feature extraction (defined for upsampled low-res.)
-        conf.upsample_factor = upscaling; % upsample low-res. into mid-res.
         
         if strcmp(filter,'LS')
             conf.filters = {hHighRes.L,hHighRes.H1,hHighRes.H2,hHighRes.H3,hHighRes.H4,...
                 hHighRes.V1,hHighRes.V2,hHighRes.V3,hHighRes.V4};
         else
+            conf.upsample_factor = upscaling; % upsample low-res. into mid-res.
+            O = zeros(1, conf.upsample_factor-1);
             G = [1 O -1]; % Gradient
             L = [1 O -2 O 1]/2; % Laplacian
             conf.filters = {G, G.', L, L.'}; % 2D versions
@@ -116,9 +118,13 @@ d = 10;
         end
         
         startt = tic;
+        
+        % Learn dictionaries via K-SVD or Spherical
+        
         conf = learn_dict(conf, load_images(...            
             glob('CVPR08-SR/Data/Training', '*.bmp') ...
-            ), dict_sizes(d));       
+            ), dict_sizes(d),train_method);   
+        
         conf.overlap = conf.window - [1 1]; % full overlap scheme (for better reconstruction)    
         conf.trainingtime = toc(startt);
         toc(startt)
@@ -139,52 +145,52 @@ d = 10;
     end
     
     %% GR
-    if dict_sizes(d) < 10000
-        conf.ProjM = (conf.dict_lores'*conf.dict_lores+lambda*eye(size(conf.dict_lores,2)))\conf.dict_lores';    
-        conf.PP = (1+lambda)*conf.dict_hires*conf.ProjM;
-    else
-        % here should be an approximation
-        conf.PP = zeros(size(conf.dict_hires,1), size(conf.V_pca,2));
-        conf.ProjM = [];
-    end
-    
-    conf.filenames = glob(input_dir, pattern); % Cell array      
-    
+%     if dict_sizes(d) < 10000
+%         conf.ProjM = (conf.dict_lores'*conf.dict_lores+lambda*eye(size(conf.dict_lores,2)))\conf.dict_lores';    
+%         conf.PP = (1+lambda)*conf.dict_hires*conf.ProjM;
+%     else
+%         % here should be an approximation
+%         conf.PP = zeros(size(conf.dict_hires,1), size(conf.V_pca,2));
+%         conf.ProjM = [];
+%     end
+%     
+%     conf.filenames = glob(input_dir, pattern); % Cell array      
+%     
     conf.desc = {'Original', 'Bicubic', 'Yang et al.', ...
-        'Zeyde et al.', 'Our GR', 'Our ANR', ...
-        'NE+LS','NE+NNLS','NE+LLE','Our A+ (0.5mil)','Our A+', 'Our A+ (16atoms)'};
-    conf.results = {};
-    
-    %conf.points = [1:10:size(conf.dict_lores,2)];
-    conf.points = 1:1:size(conf.dict_lores,2);
-    
-    conf.pointslo = conf.dict_lores(:,conf.points);
-    conf.pointsloPCA = conf.pointslo'*conf.V_pca';
-    
-    % precompute for ANR the anchored neighborhoods and the projection matrices for
-    % the dictionary 
-    
-    conf.PPs = [];    
-    if  size(conf.dict_lores,2) < 40
-        clustersz = size(conf.dict_lores,2);
-    else
-        clustersz = 40;
-    end
-    D = abs(conf.pointslo'*conf.dict_lores);    
-    
-    for i = 1:length(conf.points)
-        [vals, idx] = sort(D(i,:), 'descend');
-        if (clustersz >= size(conf.dict_lores,2)/2)
-            conf.PPs{i} = conf.PP;
-        else
-            Lo = conf.dict_lores(:, idx(1:clustersz));        
-            conf.PPs{i} = 1.01*conf.dict_hires(:,idx(1:clustersz))/(Lo'*Lo+0.01*eye(size(Lo,2)))*Lo';    
-        end
-    end    
-    
-    ANR_PPs = conf.PPs; % store the ANR regressors
-    
-    save([tag '_' mat_file '_ANR_projections_imgscale_' num2str(imgscale)],'conf');
+         'Zeyde et al.', 'Our GR', 'Our ANR', ...
+         'NE+LS','NE+NNLS','NE+LLE','Our A+ (0.5mil)','Our A+', 'Our A+ (16atoms)'};
+%     conf.results = {};
+%     
+%     %conf.points = [1:10:size(conf.dict_lores,2)];
+%     conf.points = 1:1:size(conf.dict_lores,2);
+%     
+%     conf.pointslo = conf.dict_lores(:,conf.points);
+%     conf.pointsloPCA = conf.pointslo'*conf.V_pca';
+%     
+%     % precompute for ANR the anchored neighborhoods and the projection matrices for
+%     % the dictionary 
+%     
+%     conf.PPs = [];    
+%     if  size(conf.dict_lores,2) < 40
+%         clustersz = size(conf.dict_lores,2);
+%     else
+%         clustersz = 40;
+%     end
+%     D = abs(conf.pointslo'*conf.dict_lores);    
+%     
+%     for i = 1:length(conf.points)
+%         [vals, idx] = sort(D(i,:), 'descend');
+%         if (clustersz >= size(conf.dict_lores,2)/2)
+%             conf.PPs{i} = conf.PP;
+%         else
+%             Lo = conf.dict_lores(:, idx(1:clustersz));        
+%             conf.PPs{i} = 1.01*conf.dict_hires(:,idx(1:clustersz))/(Lo'*Lo+0.01*eye(size(Lo,2)))*Lo';    
+%         end
+%     end    
+%     
+%     ANR_PPs = conf.PPs; % store the ANR regressors
+%     
+%     save([tag '_' mat_file '_ANR_projections_imgscale_' num2str(imgscale)],'conf');
     
     %% A+ computing the regressors
     Aplus_PPs = [];
@@ -214,7 +220,7 @@ d = 10;
         phires = phires./repmat(l2,size(phires,1),1);
         clear l2
         clear l2n
-        fprintf('\A+: L2 normalized and scaled\n');
+        fprintf('\tA+: L2 normalized and scaled\n');
 
         llambda = 0.1;
         Aplus_PPs = cell(size(conf.dict_lores,2),1);
@@ -305,7 +311,7 @@ d = 10;
     %% Progress Monitoring
     t = cputime;    
         
-    conf.countedtime = zeros(numel(conf.desc),numel(conf.filenames));
+   % conf.countedtime = zeros(numel(conf.desc),numel(conf.filenames));
     
     res =[];
     for i = 1:numel(conf.filenames)

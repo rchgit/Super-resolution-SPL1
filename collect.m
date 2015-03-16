@@ -33,7 +33,7 @@ if verbose
     fprintf('\nExtracted %d features (size: %d)\n', num_of_features, feature_size);
 end
 clear imgs % to save memory
-features = zeros([feature_size num_of_features], 'single');
+features = zeros([feature_size num_of_features], 'double');
 offset = 0;
 for i = 1:num_of_imgs
     F = feature_cell{i};

@@ -8,10 +8,10 @@ for i = 1:numel(paths)
     if size(X, 3) == 3 % we extract our features from Y channel
         X = rgb2ycbcr(X);        
         %X = rgb2gray(X);                
-        imgsCB{i} = im2single(X(:,:,2)); 
-        imgsCR{i} = im2single(X(:,:,3));
+        imgsCB{i} = im2double(X(:,:,2)); 
+        imgsCR{i} = im2double(X(:,:,3));
         X = X(:, :, 1);
     end
-    X = im2single(X); % to reduce memory usage
+    X = im2double(X); % to reduce memory usage
     imgs{i} = X;
 end

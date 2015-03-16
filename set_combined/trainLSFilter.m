@@ -40,27 +40,27 @@ for file = files'
 %     if size(map,2) == 3
 %         X = rgb2gray(X);
 %     end
-    X{i} = rgb2gray(double(imread(file.name)) / 255);
+     X{i} = rgb2gray(double(imread(file.name)) / 255);
+    % Change to rgb2ycbcr
+    %X{i} = rgb2ycbcr(double(imread(file.name)) / 255);
+    % Get Y channel
+    %X{i} = X{i}(:,:,1);
     % If the image has odd dimensions, crop pixels from the last row and/or
     % column
     if size(size(X{i}),2) == 2 % .bmp files
-        if mod(size(X{i},1),2) ~= 0
-%             X{i} = [X{i}; X{i}(end,:)];
+        if mod(size(X{i},1),2)  %~= 0
             X{i} = X{i}(2:end-2,:);
         end
 
         if mod(size(X{i},2),2) ~= 0
-%            X{i} = [X{i} X{i}(:,end)];
             X{i} = X{i}(:,2:end-2);
         end
     elseif size(size(X{i}),2) == 3 % .png or .jpg files
         if mod(size(X{i},1),2) ~= 0
-%             X{i} = [X{i}; X{i}(end,:,:)];
             X{i} = X{i}(2:end-2,:,:);
         end
 
         if mod(size(X{i},2),2) ~= 0
-%            X{i} = [X{i} X{i}(:,end,:)];
             X{i} = X{i}(:,2:end-2,:);
         end
     end
@@ -367,34 +367,35 @@ for n = 1:numIter
 end
 
 save(filename);
+save(['filter_' filename],'hHighRes');
 
 %% Filter visualization
-close all;
-figure(1);
-subplot(1,2,1); surf(hHighRes.L); view(2);
-subplot(1,2,2); surf(hLowRes.L); view(2);
-figure(2);
-subplot(1,2,1); surf(hHighRes.H1); view(2);
-subplot(1,2,2); surf(hLowRes.H1); view(2);
-figure(3);
-subplot(1,2,1); surf(hHighRes.H2); view(2);
-subplot(1,2,2); surf(hLowRes.H2); view(2);
-figure(4);
-subplot(1,2,1); surf(hHighRes.H3); view(2);
-subplot(1,2,2); surf(hLowRes.H3); view(2);
-figure(5);
-subplot(1,2,1); surf(hHighRes.H4); view(2);
-subplot(1,2,2); surf(hLowRes.H4); view(2);
-figure(6);
-subplot(1,2,1); surf(hHighRes.V1); view(2);
-subplot(1,2,2); surf(hLowRes.V1); view(2);
-figure(7);
-subplot(1,2,1); surf(hHighRes.V2); view(2);
-subplot(1,2,2); surf(hLowRes.V2); view(2);
-figure(8);
-subplot(1,2,1); surf(hHighRes.V3); view(2);
-subplot(1,2,2); surf(hLowRes.V3); view(2);
-figure(9);
-subplot(1,2,1); surf(hHighRes.V4); view(2);
-subplot(1,2,2); surf(hLowRes.V4); view(2);
+% close all;
+% figure(1);
+% subplot(1,2,1); surf(hHighRes.L); view(2);
+% subplot(1,2,2); surf(hLowRes.L); view(2);
+% figure(2);
+% subplot(1,2,1); surf(hHighRes.H1); view(2);
+% subplot(1,2,2); surf(hLowRes.H1); view(2);
+% figure(3);
+% subplot(1,2,1); surf(hHighRes.H2); view(2);
+% subplot(1,2,2); surf(hLowRes.H2); view(2);
+% figure(4);
+% subplot(1,2,1); surf(hHighRes.H3); view(2);
+% subplot(1,2,2); surf(hLowRes.H3); view(2);
+% figure(5);
+% subplot(1,2,1); surf(hHighRes.H4); view(2);
+% subplot(1,2,2); surf(hLowRes.H4); view(2);
+% figure(6);
+% subplot(1,2,1); surf(hHighRes.V1); view(2);
+% subplot(1,2,2); surf(hLowRes.V1); view(2);
+% figure(7);
+% subplot(1,2,1); surf(hHighRes.V2); view(2);
+% subplot(1,2,2); surf(hLowRes.V2); view(2);
+% figure(8);
+% subplot(1,2,1); surf(hHighRes.V3); view(2);
+% subplot(1,2,2); surf(hLowRes.V3); view(2);
+% figure(9);
+% subplot(1,2,1); surf(hHighRes.V4); view(2);
+% subplot(1,2,2); surf(hLowRes.V4); view(2);
 end
