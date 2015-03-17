@@ -34,7 +34,7 @@ addpath(fullfile(p, '/methods'));  % the upscaling methods
 
 %% RUN SETTINGS
 imgscale = 1; % the scale reference we work with
-flag = 1;       % flag = 0 - only GR, ANR, A+, and bicubic methods, the other get the bicubic result by default
+flag = 0;       % flag = 0 - only GR, ANR, A+, and bicubic methods, the other get the bicubic result by default
                 % flag = 1 - all the methods are applied
 
 upscaling = 4; % the magnification factor x2, x3, x4...
@@ -145,52 +145,52 @@ d = 10;
     end
     
     %% GR
-%     if dict_sizes(d) < 10000
-%         conf.ProjM = (conf.dict_lores'*conf.dict_lores+lambda*eye(size(conf.dict_lores,2)))\conf.dict_lores';    
-%         conf.PP = (1+lambda)*conf.dict_hires*conf.ProjM;
-%     else
-%         % here should be an approximation
-%         conf.PP = zeros(size(conf.dict_hires,1), size(conf.V_pca,2));
-%         conf.ProjM = [];
-%     end
-%     
-%     conf.filenames = glob(input_dir, pattern); % Cell array      
-%     
+    if dict_sizes(d) < 10000
+        conf.ProjM = (conf.dict_lores'*conf.dict_lores+lambda*eye(size(conf.dict_lores,2)))\conf.dict_lores';    
+        conf.PP = (1+lambda)*conf.dict_hires*conf.ProjM;
+    else
+        % here should be an approximation
+        conf.PP = zeros(size(conf.dict_hires,1), size(conf.V_pca,2));
+        conf.ProjM = [];
+    end
+     
+    conf.filenames = glob(input_dir, pattern); % Cell array      
+ 
     conf.desc = {'Original', 'Bicubic', 'Yang et al.', ...
          'Zeyde et al.', 'Our GR', 'Our ANR', ...
          'NE+LS','NE+NNLS','NE+LLE','Our A+ (0.5mil)','Our A+', 'Our A+ (16atoms)'};
-%     conf.results = {};
-%     
-%     %conf.points = [1:10:size(conf.dict_lores,2)];
-%     conf.points = 1:1:size(conf.dict_lores,2);
-%     
-%     conf.pointslo = conf.dict_lores(:,conf.points);
-%     conf.pointsloPCA = conf.pointslo'*conf.V_pca';
-%     
-%     % precompute for ANR the anchored neighborhoods and the projection matrices for
-%     % the dictionary 
-%     
-%     conf.PPs = [];    
-%     if  size(conf.dict_lores,2) < 40
-%         clustersz = size(conf.dict_lores,2);
-%     else
-%         clustersz = 40;
-%     end
-%     D = abs(conf.pointslo'*conf.dict_lores);    
-%     
-%     for i = 1:length(conf.points)
-%         [vals, idx] = sort(D(i,:), 'descend');
-%         if (clustersz >= size(conf.dict_lores,2)/2)
-%             conf.PPs{i} = conf.PP;
-%         else
-%             Lo = conf.dict_lores(:, idx(1:clustersz));        
-%             conf.PPs{i} = 1.01*conf.dict_hires(:,idx(1:clustersz))/(Lo'*Lo+0.01*eye(size(Lo,2)))*Lo';    
-%         end
-%     end    
-%     
-%     ANR_PPs = conf.PPs; % store the ANR regressors
-%     
-%     save([tag '_' mat_file '_ANR_projections_imgscale_' num2str(imgscale)],'conf');
+    conf.results = {};
+     
+    %conf.points = [1:10:size(conf.dict_lores,2)];
+    conf.points = 1:1:size(conf.dict_lores,2);
+    
+    conf.pointslo = conf.dict_lores(:,conf.points);
+    conf.pointsloPCA = conf.pointslo'*conf.V_pca';
+    
+    % precompute for ANR the anchored neighborhoods and the projection matrices for
+    % the dictionary 
+    
+    conf.PPs = [];    
+    if  size(conf.dict_lores,2) < 40
+        clustersz = size(conf.dict_lores,2);
+    else
+        clustersz = 40;
+    end
+    D = abs(conf.pointslo'*conf.dict_lores);    
+    
+    for i = 1:length(conf.points)
+        [vals, idx] = sort(D(i,:), 'descend');
+        if (clustersz >= size(conf.dict_lores,2)/2)
+            conf.PPs{i} = conf.PP;
+        else
+            Lo = conf.dict_lores(:, idx(1:clustersz));        
+            conf.PPs{i} = 1.01*conf.dict_hires(:,idx(1:clustersz))/(Lo'*Lo+0.01*eye(size(Lo,2)))*Lo';    
+        end
+    end    
+     
+     ANR_PPs = conf.PPs; % store the ANR regressors
+    
+    save([tag '_' mat_file '_ANR_projections_imgscale_' num2str(imgscale)],'conf');
     
     %% A+ computing the regressors
     Aplus_PPs = [];
@@ -231,7 +231,6 @@ d = 10;
             Hi = phires(:, idx(1:clusterszA));
             Aplus_PPs{i} = Hi/(Lo'*Lo+llambda*eye(size(Lo,2)))*Lo'; 
             fprintf('\tA+ regressors %f%% complete \n',i*100/size(conf.dict_lores,2));
-%Aplus_PPs{i} = Hi*(inv(Lo*Lo'+llambda*eye(size(Lo,1)))*Lo)'; 
         end        
         clear plores
         clear phires
@@ -311,7 +310,7 @@ d = 10;
     %% Progress Monitoring
     t = cputime;    
         
-   % conf.countedtime = zeros(numel(conf.desc),numel(conf.filenames));
+    conf.countedtime = zeros(numel(conf.desc),numel(conf.filenames));
     
     res =[];
     for i = 1:numel(conf.filenames)

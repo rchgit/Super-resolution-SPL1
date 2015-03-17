@@ -1,4 +1,4 @@
-function [V,alpha,A,B,n] = learnSphericalClusters(X,V,n,varargin)
+function [X,V,alpha,A,B,n] = learnSphericalClusters(X,V,n,varargin)
 % V = (cluster centers = dictionary atoms) OR num of dict atoms
 % A & B = least-squares statistics
 % n = training count
@@ -10,19 +10,14 @@ maxargs = 5;
 narginchk(minargs, maxargs)
 
 % Define the mini-batch size
-batchSize = 1;
+batchSize = 10;
 learnRate = 1000;
 
 % Ensure that the signals are zero-mean
-Xmean = repmat(mean(X),size(X,1),1);
-X = X - Xmean;
+X = X - repmat(mean(X),size(X,1),1);
 
-% Zero the columns with negligible norms 
-X(:,sqrt(sum(X .^ 2)) < 0.1) = 0;
-%X = X(:,sqrt(sum(X .^ 2)) >= 0.1);
-
-% EXPERIMENTAL: return signals to nonzero-mean
-%Xfinal = X + Xmean;
+% Remove the columns with negligible norms 
+X = X(:,sqrt(sum(X .^ 2)) >= 0.1);
 
 % Normalize the remaining signals
 X = X ./ repmat(sqrt(sum(X .^ 2)),size(X,1),1);

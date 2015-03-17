@@ -10,7 +10,7 @@ maxargs = 5;
 narginchk(minargs, maxargs)
 totalpha = [];
 % Define the mini-batch size
-batchSize = 1;
+batchSize = 10;
 learnRate = 1000;
 
 % Ensure that the signals are zero-mean

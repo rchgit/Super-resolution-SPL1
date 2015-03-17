@@ -10,7 +10,7 @@ hires = modcrop(hires, conf.scale); % crop a bit (to simplify scaling issues)
 % Scale down images
 lores = resize(hires, 1/conf.scale, conf.interpolate_kernel);
 midres = resize(lores, conf.upsample_factor, conf.interpolate_kernel);
-features = collect(conf, midres, conf.upsample_factor, conf.filters,1);
+
 clear midres;
 
 interpolated = resize(lores, conf.scale, conf.interpolate_kernel);
@@ -28,14 +28,31 @@ conf.ksvd_conf = ksvd_conf;
 % TRAINING
 if strcmp(type,'spherical') 
     %% Spherical cluster training
-    [conf.dict_lores,gamma,~,~,~] = learnSphericalClusters_concatenatedalpha(patches,...
-                                    10,0);
+    [patches,conf.dict_lores] = learnSphericalClusters(patches,dictsize,0);
+    fprintf('Computing sparse coefficients\n');
+    gamma = conf.dict_lores' * patches;
+    gamma = gamma .* (repmat(max(gamma),size(gamma,1),1) == gamma);
     fprintf('Computing high-res. dictionary from low-res. dictionary\n');
-        dict_hires = (patches * gamma') / (gamma * gamma');
-
+    dict_hires = (patches * gamma') / (gamma * gamma');
     conf.dict_hires = double(dict_hires);
+    %% PCA dimensionality reduction
+    % QUESTION: Where do you get the features? From the original patches,
+    % or from the normalized one?
+    features = collect(conf, patches, conf.upsample_factor, conf.filters,1);
+    C = features * features';
+    [V, D] = eig(C);
+    D = diag(D); % perform PCA on features matrix 
+    D = cumsum(D) / sum(D);
+    k = find(D >= 1e-3, 1); % ignore 0.1% energy
+    conf.V_pca = V(:, k:end); % choose the largest eigenvectors' projection
+    %features_pca = conf.V_pca' * features;
+    % Combine into one large training set
+    clear C D V;
+    %ksvd_conf.data = double(features_pca);
+    %clear features_pca;
 elseif strcmp(type,'ksvd')
     %% Set KSVD configuration
+    features = collect(conf, midres, conf.upsample_factor, conf.filters,1);
     ksvd_conf.iternum = 20; % TBD
     ksvd_conf.memusage = 'normal'; % higher usage doesn't fit...
     %ksvd_conf.dictsize = 5000; % TBD
