@@ -47,30 +47,28 @@ for file = files'
     %X{i} = X{i}(:,:,1);
     % If the image has odd dimensions, crop pixels from the last row and/or
     % column
-%     if size(size(X{i}),2) == 2 % .bmp files
-%         if mod(size(X{i},1),2)  %~= 0
-%             X{i} = X{i}(2:end-2,:);
-%         end
-% 
-%         if mod(size(X{i},2),2) ~= 0
-%             X{i} = X{i}(:,2:end-2);
-%         end
-%     elseif size(size(X{i}),2) == 3 % .png or .jpg files
-%         if mod(size(X{i},1),2) ~= 0
-%             X{i} = X{i}(2:end-2,:,:);
-%         end
-% 
-%         if mod(size(X{i},2),2) ~= 0
-%             X{i} = X{i}(:,2:end-2,:);
-%         end
-%     end
-%     fprintf('Size: %dx%d\n',size(X{i},1),size(X{i},2));
+    if size(size(X{i}),2) == 2 % .bmp files
+        if mod(size(X{i},1),2)  %~= 0
+            X{i} = X{i}(2:end-2,:);
+        end
+
+        if mod(size(X{i},2),2) ~= 0
+            X{i} = X{i}(:,2:end-2);
+        end
+    elseif size(size(X{i}),2) == 3 % .png or .jpg files
+        if mod(size(X{i},1),2) ~= 0
+            X{i} = X{i}(2:end-2,:,:);
+        end
+
+        if mod(size(X{i},2),2) ~= 0
+            X{i} = X{i}(:,2:end-2,:);
+        end
+    end
+    fprintf('Size: %dx%d\n',size(X{i},1),size(X{i},2));
     % Create a downsampled and approximate version of the image
     Y{i} = imresize(imresize(X{i},0.5,'bicubic'),2,'lanczos3');
 end
 
-%% Modulo cropping
-X = modcrop(X,2);
 %% Initial pass
 
 % Define the initial filter set

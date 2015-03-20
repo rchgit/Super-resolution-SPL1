@@ -1,4 +1,4 @@
-function [hHighRes] = trainLSFilter(numIter,wsize,filename)
+function [hHighRes] = trainLSFilter(folder,numIter,wsize,filename)
 %% Simulation settings
 % Define the Gaussian size
 gsize = 11;
@@ -23,16 +23,16 @@ BV4 = zeros(1,wsize*wsize);
 
 %% Image data initialization
 % Get all image files in the current folder
-files = [dir('*.png'); dir('*.bmp'); dir('*.jpg')];
+files = [dir(fullfile(folder,'/*.png')); dir(fullfile(folder,'/*.jpg')); dir(fullfile(folder,'/*.bmp'))];
 X = cell(size(files,1),1);
 Y = cell(size(files,1),1);
 i = 0;
+
 for file = files'
     i = i + 1;
     % Inform user of the progress
-    fprintf('\tLoading image %d of %d: \t%s\t\t',i,size(files,1),file.name);
+    fprintf('\tLoading image %d of %d: \t%s\t\t\n',i,size(files,1),file.name);
     
-
     % Load image to memory
     % If image is grayscale
 %     [X,map] = imread(file.name);
@@ -40,31 +40,12 @@ for file = files'
 %     if size(map,2) == 3
 %         X = rgb2gray(X);
 %     end
-     X{i} = rgb2gray(double(imread(file.name)) / 255);
+     %X{i} = rgb2gray(double(imread(file.name)) / 255);
     % Change to rgb2ycbcr
-    %X{i} = rgb2ycbcr(double(imread(file.name)) / 255);
+    X{i} = rgb2ycbcr(double(imread([folder '/' file.name])) / 255);
     % Get Y channel
-    %X{i} = X{i}(:,:,1);
-    % If the image has odd dimensions, crop pixels from the last row and/or
-    % column
-%     if size(size(X{i}),2) == 2 % .bmp files
-%         if mod(size(X{i},1),2)  %~= 0
-%             X{i} = X{i}(2:end-2,:);
-%         end
-% 
-%         if mod(size(X{i},2),2) ~= 0
-%             X{i} = X{i}(:,2:end-2);
-%         end
-%     elseif size(size(X{i}),2) == 3 % .png or .jpg files
-%         if mod(size(X{i},1),2) ~= 0
-%             X{i} = X{i}(2:end-2,:,:);
-%         end
-% 
-%         if mod(size(X{i},2),2) ~= 0
-%             X{i} = X{i}(:,2:end-2,:);
-%         end
-%     end
-%     fprintf('Size: %dx%d\n',size(X{i},1),size(X{i},2));
+    X{i} = X{i}(:,:,1);
+
     % Create a downsampled and approximate version of the image
     Y{i} = imresize(imresize(X{i},0.5,'bicubic'),2,'lanczos3');
 end
@@ -161,7 +142,6 @@ hLowRes.V3 = reshape(BV3 / AV,[],wsize);
 hLowRes.V4 = reshape(BV4 / AV,[],wsize);
 
 %% Refinement passes
-
 % Iteratively update the two filters to promote convergence
 for n = 1:numIter
     % Reset statistics

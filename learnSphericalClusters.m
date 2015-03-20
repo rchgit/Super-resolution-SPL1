@@ -1,4 +1,4 @@
-function [X,V,alpha,A,B,n] = learnSphericalClusters(X,V,n,varargin)
+function [X,V,spherical_conf] = learnSphericalClusters(X,V,n,varargin)
 % V = (cluster centers = dictionary atoms) OR num of dict atoms
 % A & B = least-squares statistics
 % n = training count
@@ -17,7 +17,7 @@ learnRate = 1000;
 X = X - repmat(mean(X),size(X,1),1);
 
 % Remove the columns with negligible norms 
-X = X(:,sqrt(sum(X .^ 2)) >= 0.1);
+%X = X(:,sqrt(sum(X .^ 2)) >= 0.1);
 
 % Normalize the remaining signals
 X = X ./ repmat(sqrt(sum(X .^ 2)),size(X,1),1);
@@ -25,15 +25,14 @@ X = X ./ repmat(sqrt(sum(X .^ 2)),size(X,1),1);
 % Extract the signal information
 numCols = size(X,2);
 dictSize = size(X,1);
-
+spherical_conf.dictsize = dictSize;
+spherical_conf.batchsize = batchSize;
 % Check if the input statistics have been provided
 if length(V(:)) == 1
     % The value stored in V is actually the number of atoms
     numAtoms = V;
     
     % Create blank statistics
-    %A = zeros(numAtoms,numAtoms);
-    %B = zeros(dictSize,numAtoms);
     A = sparse(numAtoms,numAtoms);
     B = sparse(dictSize,numAtoms);
     n = 1;
@@ -55,9 +54,9 @@ else
     assert(size(B,1) == dictSize && size(B,2) == numAtoms,'The statistics matrix B has an invalid size');
     assert(n > 0,'The training count is invalid');
 end
-
+fprintf('\tTraining spherical clusters...\n');
 for i = 1:batchSize:numCols-batchSize+1
-    fprintf('\t\tTraining count: %d of %d\n',n,numCols-batchSize+1);
+    %fprintf('\t\tTraining count: %d of %d\n',n,numCols-batchSize+1);
     % Copy the batch to a local variable
     Xbatch = X(:,i:i+batchSize-1); 
     
@@ -88,4 +87,8 @@ for i = 1:batchSize:numCols-batchSize+1
     % Update the training count
     n = n + batchSize;
     
+end
+spherical_conf.A = A;
+spherical_conf.B = B;
+spherical_conf.traincount = n;
 end

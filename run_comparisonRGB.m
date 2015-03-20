@@ -31,7 +31,7 @@ for i = 1:numel(conf.filenames)
     fprintf('%d/%d:', i, numel(conf.filenames));
     
     for j = 1:numel(conf.results{i})
-        [dummy, f] = split_path(conf.resultsRGB{i}{j});
+        [~, f] = split_path(conf.resultsRGB{i}{j});
         image_write(imread(conf.resultsRGB{i}{j}), f);
         conf.resultsRGB{i}{j} = f;
     end
@@ -78,18 +78,28 @@ else
         size(conf.V_pca, 1)));
     fprintf(fid, sprintf('<TR><TD>Feature dim. (reduced)<TD>%d</TR>\n', ...
         size(conf.V_pca, 2)));
-    fprintf(fid, sprintf('<TR><TD>Dictionary size<TD>%d</TR>\n', ...
-        conf.ksvd_conf.dictsize));
-    fprintf(fid, sprintf('<TR><TD>Dictionary maximal sparsity<TD>%d</TR>\n', ...
-        conf.ksvd_conf.Tdata));
-    fprintf(fid, sprintf('<TR><TD>Dictionary iterations<TD>%d</TR>\n', ...
-        conf.ksvd_conf.iternum));
+    if strcmp(conf.train_method,'ksvd')
+        fprintf(fid, sprintf('<TR><TD>Dictionary size<TD>%d</TR>\n', ...
+            conf.ksvd_conf.dictsize));
+        fprintf(fid, sprintf('<TR><TD>Dictionary maximal sparsity<TD>%d</TR>\n', ...
+            conf.ksvd_conf.Tdata));
+        fprintf(fid, sprintf('<TR><TD>Dictionary iterations<TD>%d</TR>\n', ...
+            conf.ksvd_conf.iternum));
+    elseif strcmp(conf.train_method, 'spherical')
+        fprintf(fid, sprintf('<TR><TD>Dictionary size<TD>%d</TR>\n', ...
+            conf.spherical_conf.dictsize));
+        fprintf(fid, sprintf('<TR><TD>Training batch size<TD>%d</TR>\n', ...
+            conf.spherical_conf.batchsize));
+        fprintf(fid, sprintf('<TR><TD>Dictionary train count<TD>%d</TR>\n', ...
+            conf.spherical_conf.traincount));
     fprintf(fid, sprintf('<TR><TD>Duration<TD>%.1f seconds</TR>\n', ...
         conf.duration));
     fprintf(fid, sprintf('<TR><TD># of images<TD>%d</TR>\n', ...
         numel(conf.filenames)));
     fprintf(fid, sprintf('<TR><TD>Interpolation Kernel<TD>%s</TR>\n', ...
         conf.interpolate_kernel));
+    
+    end
     fprintf(fid, '</TABLE>\n');
 end
 

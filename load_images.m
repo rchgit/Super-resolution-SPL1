@@ -12,6 +12,6 @@ for i = 1:numel(paths)
         imgsCR{i} = im2double(X(:,:,3));
         X = X(:, :, 1);
     end
-    X = im2double(X); % to reduce memory usage
+    X = im2double(X); 
     imgs{i} = X;
 end

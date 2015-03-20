@@ -23,28 +23,35 @@
 
 % LS & Spherical revisions 
 % February 21, 2015. Reich Canlas, DLSU Manila
-clear;  
-    
+function [conf,simconf] = main_expt(simconf)
 p = pwd;
 addpath(fullfile(p, '/methods'));  % the upscaling methods
 
 % Add these if ksvdbox and ompbox are not yet installed in the path
-%addpath(fullfile(p, '/ksvdbox')) % K-SVD dictionary training algorithm
-%addpath(fullfile(p, '/ompbox')) % Orthogonal Matching Pursuit algorithm
+% addpath(fullfile(p, '/ksvdbox')) % K-SVD dictionary training algorithm
+% addpath(fullfile(p, '/ompbox')) % Orthogonal Matching Pursuit algorithm
 
 %% RUN SETTINGS
-imgscale = 1; % the scale reference we work with
-flag = 0;       % flag = 0 - only GR, ANR, A+, and bicubic methods, the other get the bicubic result by default
+imgscale = simconf.imgscale;
+% imgscale = 1; % the scale reference we work with
+flag = simconf.flag;
+% flag = 0;       % flag = 0 - only GR, ANR, A+, and bicubic methods, the other get the bicubic result by default
                 % flag = 1 - all the methods are applied
-
-upscaling = 4; % the magnification factor x2, x3, x4...
-filter = 'default';
+upscaling = simconf.upscaling;
+% upscaling = 4; % the magnification factor x2, x3, x4...
+filter = simconf.filter;
+% filter = 'default';
 % filter = 'LS'; % the filter 
-input_dir = 'Set5'; % Directory with input images from Set5 image dataset
+input_dir = simconf.input_dir;
+% input_dir = 'Set5'; % Directory with input images from Set5 image dataset
 %input_dir = 'Set14'; % Directory with input images from Set14 image dataset
+train_method = simconf.train_method;
 %train_method = 'ksvd';
-train_method = 'spherical'; % use spherical training method
-pattern = '*.bmp'; % Pattern to process
+% train_method = 'spherical'; % use spherical training method
+pattern = simconf.pattern;
+% pattern = '*.bmp'; % Pattern to process
+retrain = simconf.retrain;
+% retrain = 1; % 0 to reload pre-trained files, 1 to force retrain
 
 dict_sizes = [2 4 8 16 32 64 128 256 512 1024 2048 4096 8192 16384 32768 65536];
 neighbors = [1:1:12, 16:4:32, 40:8:64, 80:16:128, 256, 512, 1024];
@@ -66,31 +73,30 @@ end
 
 fprintf('\n\n');
 if strcmp(filter,'LS')
-    load('filter_trainLS_YCbCr.mat','hHighRes'); 
+    load('matfiles/filter_trainLS_YCbCr.mat','hHighRes'); 
 end
 
 %% MAIN CODE
 % Number of atoms (in powers of 2)
-d = 10;  
-%d = 9; % 512
-%d = 8; %256
-%d = 7; %128
-%d = 6; % 64
-%d = 5; % 32
-%d=4;  %16
-%d=3;  %8
-%d=2; %4
-%d=1; %2
-    
+    d = simconf.d;
     tag = ['matfiles/' input_dir '_x' num2str(upscaling) '_' num2str(dict_sizes(d)) 'atoms'];
     disp(['Upscaling x' num2str(upscaling) ' ' input_dir ' with Zeyde dictionary of size = ' num2str(dict_sizes(d))]);
-    
-    mat_file = ['conf_Zeyde_' num2str(dict_sizes(d)) '_final_x' num2str(upscaling)];    
+    zeyde_file = ['matfiles/conf_Zeyde_' num2str(dict_sizes(d)) '_final_x' num2str(upscaling)];    
         
-    if exist([mat_file '.mat'],'file')
-        disp(['\tLoad trained dictionary...' mat_file]);
-        load(mat_file, 'conf');
-    else                            
+    if exist([zeyde_file '.mat'],'file') && retrain == 0
+        
+        fprintf('\t');
+        disp(['Load trained dictionary...' zeyde_file]);
+        load(zeyde_file, 'conf');
+
+    else
+        if exist([zeyde_file '.mat'],'file') && retrain == 1
+            % Delete pre-trained data
+            fprintf('\tDeleting pre-trained dictionary...');
+            delete([zeyde_file '.mat']);
+        end
+        % Training
+        fprintf('\t');
         disp(['Training dictionary of size ' num2str(dict_sizes(d)) ' using Zeyde approach...']);
         % Simulation settings
         conf.scale = upscaling; % scale-up factor
@@ -98,11 +104,14 @@ d = 10;
         conf.window = [3 3]; % low-res. window size
         conf.border = [1 1]; % border of the image (to ignore)
 
-        % High-pass filters for feature extraction (defined for upsampled low-res.)
+        % High-pass filters for feature extraction (defined for upsampled 
+        % low-res.)
+        conf.train_method = train_method;
         
         if strcmp(filter,'LS')
             conf.filters = {hHighRes.L,hHighRes.H1,hHighRes.H2,hHighRes.H3,hHighRes.H4,...
                 hHighRes.V1,hHighRes.V2,hHighRes.V3,hHighRes.V4};
+            
         else
             conf.upsample_factor = upscaling; % upsample low-res. into mid-res.
             O = zeros(1, conf.upsample_factor-1);
@@ -120,17 +129,15 @@ d = 10;
         startt = tic;
         
         % Learn dictionaries via K-SVD or Spherical
-        
         conf = learn_dict(conf, load_images(...            
             glob('CVPR08-SR/Data/Training', '*.bmp') ...
             ), dict_sizes(d),train_method);   
-        
+        % TODO: 
         conf.overlap = conf.window - [1 1]; % full overlap scheme (for better reconstruction)    
         conf.trainingtime = toc(startt);
         toc(startt)
         
-        save(mat_file, 'conf');                       
-        
+        save(zeyde_file, 'conf');                       
         % train call        
     end
             
@@ -145,6 +152,7 @@ d = 10;
     end
     
     %% GR
+    fprintf('GR\n');
     if dict_sizes(d) < 10000
         conf.ProjM = (conf.dict_lores'*conf.dict_lores+lambda*eye(size(conf.dict_lores,2)))\conf.dict_lores';    
         conf.PP = (1+lambda)*conf.dict_hires*conf.ProjM;
@@ -155,23 +163,22 @@ d = 10;
     end
      
     conf.filenames = glob(input_dir, pattern); % Cell array      
- 
     conf.desc = {'Original', 'Bicubic', 'Yang et al.', ...
          'Zeyde et al.', 'Our GR', 'Our ANR', ...
-         'NE+LS','NE+NNLS','NE+LLE','Our A+ (0.5mil)','Our A+', 'Our A+ (16atoms)'};
+         'NE+LS','NE+NNLS','NE+LLE','Our A+ (0.5mil)','Our A+', ...
+         'Our A+ (16atoms)'};
     conf.results = {};
      
     %conf.points = [1:10:size(conf.dict_lores,2)];
     conf.points = 1:1:size(conf.dict_lores,2);
-    
     conf.pointslo = conf.dict_lores(:,conf.points);
     conf.pointsloPCA = conf.pointslo'*conf.V_pca';
     
-    % precompute for ANR the anchored neighborhoods and the projection matrices for
-    % the dictionary 
+    % precompute for ANR the anchored neighborhoods and the projection
+    % matrices for the dictionary 
     
     conf.PPs = [];    
-    if  size(conf.dict_lores,2) < 40
+    if size(conf.dict_lores,2) < 40
         clustersz = size(conf.dict_lores,2);
     else
         clustersz = 40;
@@ -179,7 +186,7 @@ d = 10;
     D = abs(conf.pointslo'*conf.dict_lores);    
     
     for i = 1:length(conf.points)
-        [vals, idx] = sort(D(i,:), 'descend');
+        [~, idx] = sort(D(i,:), 'descend');
         if (clustersz >= size(conf.dict_lores,2)/2)
             conf.PPs{i} = conf.PP;
         else
@@ -188,23 +195,29 @@ d = 10;
         end
     end    
      
-     ANR_PPs = conf.PPs; % store the ANR regressors
+    ANR_PPs = conf.PPs; % store the ANR regressors
     
-    save([tag '_' mat_file '_ANR_projections_imgscale_' num2str(imgscale)],'conf');
+    save([zeyde_file '_ANR_projections_imgscale_' num2str(imgscale)],'conf');
     
     %% A+ computing the regressors
+    fprintf('A+ (5 mil)\n');
     Aplus_PPs = [];
-        
-    fname = ['matfiles/Aplus_x' num2str(upscaling) '_' num2str(dict_sizes(d)) 'atoms' num2str(clusterszA) 'nn_5mil.mat'];
+    aplus_5mil_file = ['matfiles/Aplus_x' num2str(upscaling) '_' num2str(dict_sizes(d)) 'atoms' num2str(clusterszA) 'nn_5mil.mat'];
     
-    if exist(fname,'file')
-        load(fname);
+    if exist(aplus_5mil_file,'file') && retrain == 0
+        fprintf('Load A+ 5mil file\n');
+        load(aplus_5mil_file);
+         
     else
-        disp('Compute A+ regressors');
+        if exist(aplus_5mil_file,'file') && retrain == 1
+            % Delete pre-trained data
+            delete(aplus_5mil_file);
+        end
+        fprintf('\tCompute A+ regressors');
         ttime = tic;
         tic
         [plores, phires] = collectSamplesScales(conf, load_images(...            
-        glob('CVPR08-SR/Data/Training', '*.bmp')), 12, 0.98);  
+            glob('CVPR08-SR/Data/Training', '*.bmp')), 12, 0.98);  
 
         if size(plores,2) > 5000000                
             plores = plores(:,1:5000000);
@@ -230,30 +243,34 @@ d = 10;
             Lo = plores(:, idx(1:clusterszA));                                    
             Hi = phires(:, idx(1:clusterszA));
             Aplus_PPs{i} = Hi/(Lo'*Lo+llambda*eye(size(Lo,2)))*Lo'; 
-            fprintf('\tA+ regressors %f%% complete \n',i*100/size(conf.dict_lores,2));
+            fprintf('\tA+ regressors %.3f%% complete \n',i*100/size(conf.dict_lores,2));
         end        
         clear plores
         clear phires
         
         ttime = toc(ttime);        
-        save(fname,'Aplus_PPs','ttime', 'number_samples');   
+        save(aplus_5mil_file,'Aplus_PPs','ttime', 'number_samples');   
         toc
     end    
-    
-    
-    
+
     %% A+ (0.5mil) computing the regressors with 0.5 milion training samples
+    fprintf('A+ (0.5 mil)\n');
     Aplus05_PPs = [];    
+    aplus_05mil_file = ['matfiles/Aplus_x' num2str(upscaling) '_' num2str(dict_sizes(d)) 'atoms' num2str(clusterszA) 'nn_05mil.mat'];    
     
-    fname = ['matfiles/Aplus_x' num2str(upscaling) '_' num2str(dict_sizes(d)) 'atoms' num2str(clusterszA) 'nn_05mil.mat'];    
-    
-    if exist(fname,'file')
-       load(fname);
+    if exist(aplus_05mil_file,'file') && retrain == 0
+       
+        fprintf('Load A+ 0.5mil file\n');
+        load(aplus_05mil_file);
+
     else
-       disp('Compute A+ (0.5 mil) regressors');
-       ttime = tic;
-       tic
-       [plores, phires] = collectSamplesScales(conf, load_images(...            
+        if exist(aplus_05mil_file,'file') && retrain == 1
+            delete(aplus_05mil_file);
+        end
+        disp('Compute A+ (0.5 mil) regressors');
+        ttime = tic;
+        tic
+        [plores, phires] = collectSamplesScales(conf, load_images(...            
         glob('CVPR08-SR/Data/Training', '*.bmp')), 1,1);  
 
         if size(plores,2) > 500000                
@@ -268,7 +285,7 @@ d = 10;
         l2(l2<0.1) = 1;
         plores = plores./l2n;
         phires = phires./repmat(l2,size(phires,1),1);
-        fprintf('\A+ (0.5 mil): L2 normalized and scaled\n');
+        fprintf('\tA+ (0.5 mil): L2 normalized and scaled\n');
         clear l2
         clear l2n
 
@@ -280,24 +297,25 @@ d = 10;
             Lo = plores(:, idx(1:clusterszA));                                    
             Hi = phires(:, idx(1:clusterszA));
             Aplus05_PPs{i} = Hi/(Lo'*Lo+llambda*eye(size(Lo,2)))*Lo'; 
-            fprintf('\tA+ (0.5 mil) regressors %f%% complete \n',i*100/size(conf.dict_lores,2));
+            fprintf('\tA+ (0.5 mil) regressors %.3f%% complete \n',i*100/size(conf.dict_lores,2));
         end        
         clear plores;
         clear phires;
         
         ttime = toc(ttime);        
-        save(fname,'Aplus05_PPs','ttime', 'number_samples');   
+        save(aplus_05mil_file,'Aplus05_PPs','ttime', 'number_samples');   
         toc
     end            
     
     %% load the A+ (16 atoms) for comparison results
     conf16 = [];       
-    fname = ['matfiles/Aplus_x' num2str(upscaling) '_16atoms' num2str(clusterszA) 'nn_05mil.mat'];
+    fprintf('Loading A+ (16 atoms) for comparison\n');
+    aplus_05mil_file = ['matfiles/Aplus_x' num2str(upscaling) '_16atoms' num2str(clusterszA) 'nn_05mil.mat'];
     fnamec = ['matfiles/Set14_x' num2str(upscaling) '_16atoms_conf_Zeyde_16_finalx' num2str(upscaling) '_ANR_projections_imgscale_' num2str(imgscale) '.mat']; 
-    if exist(fname,'file') && exist(fnamec,'file')
+    if exist(aplus_05mil_file,'file') && exist(fnamec,'file')
        kk = load(fnamec);
        conf16 = kk.conf;       
-       kk = load(fname);       
+       kk = load(aplus_05mil_file);       
        conf16.PPs = kk.Aplus05_PPs;
        clear kk
     end
@@ -309,9 +327,7 @@ d = 10;
     
     %% Progress Monitoring
     t = cputime;    
-        
     conf.countedtime = zeros(numel(conf.desc),numel(conf.filenames));
-    
     res =[];
     for i = 1:numel(conf.filenames)
         f = conf.filenames{i};
@@ -356,6 +372,7 @@ d = 10;
         % Zeyde
         if (flag == 1)
             startt = tic;
+            fprintf('Zeyde\n');
             res{3} = scaleup_Zeyde(conf, low);
             toc(startt)
             conf.countedtime(3,i) = toc(startt);    
@@ -364,12 +381,14 @@ d = 10;
         end
         
         % GR
+        fprintf('GR\n');
         startt = tic;
         res{4} = scaleup_GR(conf, low);
         toc(startt)
         conf.countedtime(4,i) = toc(startt);    
         
         % ANR
+        fprintf('ANR\n');
         startt = tic;
         conf.PPs = ANR_PPs;
         res{5} = scaleup_ANR(conf, low);
@@ -379,6 +398,7 @@ d = 10;
         % NE+LS
         if flag == 1
             startt = tic;
+            fprintf('NE+LS\n');
             if 12 < dict_sizes(d)
                 res{6} = scaleup_NE_LS(conf, low, 12);
             else
@@ -393,6 +413,7 @@ d = 10;
         % NE+NNLS
         if flag == 1
             startt = tic;
+            fprintf('NE+NNLS\n');
             if 24 < dict_sizes(d)
                 res{7} = scaleup_NE_NNLS(conf, low, 24);
             else
@@ -406,6 +427,7 @@ d = 10;
         % NE+LLE
         if flag == 1
             startt = tic;
+            fprintf('NE+LLE\n');
             if 24 < dict_sizes(d)
                 res{8} = scaleup_NE_LLE(conf, low, 24);
             else
@@ -489,7 +511,7 @@ d = 10;
     
     run_comparisonRGB(conf); % provides color images and HTML summary
     % Save
-    save([tag '_' mat_file '_results_imgscale_' num2str(imgscale)],'conf','scores');
+    save([tag '_results_imgscale_' num2str(imgscale)],'conf','scores','simconf');
 
 %
-
+end

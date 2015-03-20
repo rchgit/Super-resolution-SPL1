@@ -19,8 +19,8 @@ function [imgs, midres] = scaleup_ANR(conf, imgs)
             blocksize = 500;
         end
         if size(features,2) < blocksize
-            D = abs(conf.pointslo'*features); 
-            %D = conf.pointslo'*features; 
+            %D = abs(conf.pointslo'*features); 
+            D = conf.pointslo'*features; 
             %D = conf.pointsloPCA*features; 
             [~, idx] = max(D);            
 

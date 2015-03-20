@@ -9,7 +9,7 @@ feature_cell = cell(num_of_imgs, 1); % contains images' features
 num_of_features = 0;
 
 if verbose
-    fprintf('Collecting features from %d image(s) ', num_of_imgs)
+    fprintf('Collecting features from %d image(s) \n', num_of_imgs)
 end
 feature_size = [];
 
@@ -18,7 +18,7 @@ for i = 1:num_of_imgs
     h = progress(h, i / num_of_imgs, verbose);
     sz = size(imgs{i});
     if verbose
-        fprintf(' [%d x %d]', sz(1), sz(2));
+        fprintf(' [%d x %d]\n', sz(1), sz(2));
     end
     
     F = extract(conf, imgs{i}, scale, filters);

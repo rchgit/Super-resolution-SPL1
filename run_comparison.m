@@ -35,13 +35,13 @@ for i = 1:numel(conf.filenames)
     fprintf('%d/%d:', i, numel(conf.filenames));
     
     for j = 1:numel(conf.results{i})
-        [dummy, f] = split_path(conf.results{i}{j});
+        [~, f] = split_path(conf.results{i}{j});
         image_write(imread(conf.results{i}{j}), f);
         conf.results{i}{j} = f;
     end
 
     X = imread(conf.filenames{i}); 
-    [p, f, x] = fileparts(conf.filenames{i});
+    [~, f, ~] = fileparts(conf.filenames{i});
     f0 = [f '[0-Thumb].png'];
     fprintf(fid, '<TR><TD><A HREF=%s><IMG SRC=%s TITLE="%s"></A></TD>\n', ...
         esc(conf.results{i}{1}), f0, f);
@@ -82,12 +82,22 @@ else
         size(conf.V_pca, 1)));
     fprintf(fid, sprintf('<TR><TD>Feature dim. (reduced)<TD>%d</TR>\n', ...
         size(conf.V_pca, 2)));
-    fprintf(fid, sprintf('<TR><TD>Dictionary size<TD>%d</TR>\n', ...
-        conf.ksvd_conf.dictsize));
-    fprintf(fid, sprintf('<TR><TD>Dictionary maximal sparsity<TD>%d</TR>\n', ...
-        conf.ksvd_conf.Tdata));
-    fprintf(fid, sprintf('<TR><TD>Dictionary iterations<TD>%d</TR>\n', ...
-        conf.ksvd_conf.iternum));
+    % TODO: Insert condition to check whether spherical or ksvd
+    if strcmp(conf.train_method,'ksvd')
+        fprintf(fid, sprintf('<TR><TD>Dictionary size<TD>%d</TR>\n', ...
+            conf.ksvd_conf.dictsize));
+        fprintf(fid, sprintf('<TR><TD>Dictionary maximal sparsity<TD>%d</TR>\n', ...
+            conf.ksvd_conf.Tdata));
+        fprintf(fid, sprintf('<TR><TD>Dictionary iterations<TD>%d</TR>\n', ...
+            conf.ksvd_conf.iternum));
+    elseif strcmp(conf.train_method, 'spherical')
+        fprintf(fid, sprintf('<TR><TD>Dictionary size<TD>%d</TR>\n', ...
+            conf.spherical_conf.dictsize));
+        fprintf(fid, sprintf('<TR><TD>Training batch size<TD>%d</TR>\n', ...
+            conf.spherical_conf.batchsize));
+        fprintf(fid, sprintf('<TR><TD>Dictionary train count<TD>%d</TR>\n', ...
+            conf.spherical_conf.traincount));
+    end
     fprintf(fid, sprintf('<TR><TD>Duration<TD>%.1f seconds</TR>\n', ...
         conf.duration));
     fprintf(fid, sprintf('<TR><TD># of images<TD>%d</TR>\n', ...
