@@ -1,4 +1,4 @@
-function [X,V,spherical_conf] = learnSphericalClusters(X,V,n,varargin)
+function [X,V,params_spherical] = learnSphericalClusters(X,V,n,varargin)
 % V = (cluster centers = dictionary atoms) OR num of dict atoms
 % A & B = least-squares statistics
 % n = training count
@@ -25,8 +25,8 @@ X = X ./ repmat(sqrt(sum(X .^ 2)),size(X,1),1);
 % Extract the signal information
 numCols = size(X,2);
 dictSize = size(X,1);
-spherical_conf.dictsize = dictSize;
-spherical_conf.batchsize = batchSize;
+params_spherical.dictsize = dictSize;
+params_spherical.batchsize = batchSize;
 % Check if the input statistics have been provided
 if length(V(:)) == 1
     % The value stored in V is actually the number of atoms
@@ -88,7 +88,7 @@ for i = 1:batchSize:numCols-batchSize+1
     n = n + batchSize;
     
 end
-spherical_conf.A = A;
-spherical_conf.B = B;
-spherical_conf.traincount = n;
+params_spherical.A = A;
+params_spherical.B = B;
+params_spherical.traincount = n;
 end
