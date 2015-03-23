@@ -1,13 +1,13 @@
-function [X,V,params_spherical] = learnSphericalClusters(X,V,n,varargin)
+function [X,V,params_spherical] = learnSphericalClusters(X,V,params_spherical)
 % V = (cluster centers = dictionary atoms) OR num of dict atoms
 % A & B = least-squares statistics
 % n = training count
 % alpha = sparse coefficients
 % beta = learning factor
 fprintf('\tLearn spherical clusters\n');
-minargs = 2;
-maxargs = 5;
-narginchk(minargs, maxargs)
+% minargs = 2;
+% maxargs = 5;
+% narginchk(minargs, maxargs)
 
 % Define the mini-batch size
 batchSize = 10;
@@ -35,7 +35,7 @@ if length(V(:)) == 1
     % Create blank statistics
     A = sparse(numAtoms,numAtoms);
     B = sparse(dictSize,numAtoms);
-    n = 1;
+    params_spherical.traincount = 1;
     
     % Initialize a random dictionary
     V = randn(dictSize,numAtoms);
@@ -46,13 +46,13 @@ else
     
     % Determine the number of atoms present in the dictionary
     numAtoms = size(V,2);
-    A = varargin{1};
-    B = varargin{2};
+    % A = varargin{1};
+    % B = varargin{2};
     % Verify the sizes of the statistics
     assert(size(A,1) == numAtoms && size(A,2) == numAtoms,'The statistics matrix A has an invalid size');
     %assert(size(A,1) == dictSize && size(A,2) == numAtoms,'The statistics matrix A has an invalid size');
     assert(size(B,1) == dictSize && size(B,2) == numAtoms,'The statistics matrix B has an invalid size');
-    assert(n > 0,'The training count is invalid');
+    assert(params_spherical.traincount > 0,'The training count is invalid');
 end
 fprintf('\tTraining spherical clusters...\n');
 for i = 1:batchSize:numCols-batchSize+1
@@ -65,7 +65,7 @@ for i = 1:batchSize:numCols-batchSize+1
     alpha(alpha < repmat(max(alpha),numAtoms,1)) = 0;
     alpha = sparse(alpha);
     % Calculate the learning factor
-    beta = (1 - 1 / n) ^ learnRate;
+    beta = (1 - 1 / params_spherical.traincount) ^ learnRate;
 
     % Update the statistics
     A = beta * A + alpha * alpha' / batchSize;
@@ -85,10 +85,10 @@ for i = 1:batchSize:numCols-batchSize+1
     V(:,j) = V(:,j) ./ repmat(sqrt(sum(V(:,j) .^ 2)),dictSize,1);
 
     % Update the training count
-    n = n + batchSize;
+    params_spherical.traincount = params_spherical.traincount + batchSize;
     
 end
 params_spherical.A = A;
 params_spherical.B = B;
-params_spherical.traincount = n;
+
 end

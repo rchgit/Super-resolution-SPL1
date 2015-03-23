@@ -119,7 +119,7 @@ else
     % High-pass filters for feature extraction (defined for upsampled 
     % low-res.)
     params.train_method = train_method;
-
+    params.dictsize = dict_sizes(d);
     if strcmp(filter,'LS')
         params.filters = {hHighRes.L,hHighRes.H1,hHighRes.H2,hHighRes.H3,hHighRes.H4,...
             hHighRes.V1,hHighRes.V2,hHighRes.V3,hHighRes.V4};
@@ -142,9 +142,7 @@ else
 
     % Learn dictionaries via K-SVD or Spherical
     % TODO: Turn this into a loop at this level
-    params = learn_dict(params, load_images(...            
-        glob(train_dir, train_pattern),patch_ratio ...
-        ), dict_sizes(d),train_method);   
+    params = learn_dict_mem(params);   
     % TODO: 
     params.overlap = params.window - [1 1]; % full overlap scheme (for better reconstruction)    
     params.trainingtime = toc(startt);
