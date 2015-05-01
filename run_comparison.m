@@ -82,7 +82,6 @@ else
         size(conf.V_pca, 1)));
     fprintf(fid, sprintf('<TR><TD>Feature dim. (reduced)<TD>%d</TR>\n', ...
         size(conf.V_pca, 2)));
-    % TODO: Insert condition to check whether spherical or ksvd
     if strcmp(conf.train_method,'ksvd')
         fprintf(fid, sprintf('<TR><TD>Dictionary size<TD>%d</TR>\n', ...
             conf.ksvd_conf.dictsize));

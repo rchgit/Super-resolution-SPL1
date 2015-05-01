@@ -38,7 +38,7 @@ function [imgs, midres] = scaleup_ANR_plus(conf, imgs, hHighRes)
             end
         else            
             %% DICTIONARY TRAINING (?)
-            % TODO: Place LS filtering here?
+            % Place LS filtering here?
             for b = 1:blocksize:size(features,2)
                 if b+blocksize-1 > size(features,2)
                     D = abs(conf.pointslo'*features(:,b:end));
@@ -47,7 +47,7 @@ function [imgs, midres] = scaleup_ANR_plus(conf, imgs, hHighRes)
                     D = abs(conf.pointslo'*features(:,b:b+blocksize-1));                 
                     %D = conf.pointslo'*features(:,b:b+blocksize-1);                 
                 end
-                [val idx] = max(D);            
+                [val, idx] = max(D);            
 
 %                 uidx = unique(idx);
 %                 for u = 1: numel(uidx)

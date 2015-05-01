@@ -13,5 +13,8 @@
 *.tif
 *.TIF
 *.TIFF
+*.bak
+*.mexw64
+*.mexa64
 
 

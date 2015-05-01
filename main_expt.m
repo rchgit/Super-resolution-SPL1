@@ -140,12 +140,8 @@ else
 
     startt = tic;
 
-    % Learn dictionaries via K-SVD or Spherical
-    % TODO: Turn this into a loop at this level
-    params = learn_dict(params, load_images(...            
-        glob(train_dir, train_pattern),patch_ratio ...
-        ), dict_sizes(d),train_method);   
-    % TODO: 
+    % Learn dictionaries via Spherical
+    params = learn_dict_puresphere(params,simparams);   
     params.overlap = params.window - [1 1]; % full overlap scheme (for better reconstruction)    
     params.trainingtime = toc(startt);
     toc(startt)

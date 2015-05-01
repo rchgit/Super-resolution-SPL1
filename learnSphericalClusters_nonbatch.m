@@ -54,8 +54,8 @@ end
 
 %for i = 1:numCols
     % Copy the batch to a local variable
-    %Xbatch = X(:,i:i+batchSize-1); 
-    % TODO: Abandon the BATCH TREATMENT!
+    %Xbatch= X(:,i:i+batchSize-1); 
+    % Abandon the BATCH TREATMENT!
     % Find the closest cluster
     alpha = V' * X;
     alpha(alpha < repmat(max(alpha),numAtoms,1)) = 0;
